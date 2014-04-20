@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Configuration;
 
 namespace NServiceBus.Host.Internal
 {
@@ -14,6 +15,14 @@ namespace NServiceBus.Host.Internal
     {
 		public static Func<FileInfo, bool> AssemblyFilter = null;
 
+		private static string[] GetExcludedAssemblies()
+		{
+			var exclusions = ConfigurationManager.AppSettings["NServiceBus:AssemblyScanner:Exclude"];
+Console.WriteLine("==> Exclusions List => {0}", exclusions);
+			if (exclusions == null) return new string[] {};
+			return exclusions.Split(',').Select(x => x.Trim().ToLowerInvariant()).ToArray();
+		}
+
         /// <summary>
         /// Gets a list with assemblies that can be scanned
         /// </summary>
@@ -21,8 +30,9 @@ namespace NServiceBus.Host.Internal
         [DebuggerNonUserCode] //so that exceptions don't jump at the developer debugging their app
         public static IEnumerable<Assembly> GetScannableAssemblies()
         {
-            var assemblyFiles = new DirectoryInfo(AppDomain.CurrentDomain.BaseDirectory).GetFiles("*.dll", SearchOption.AllDirectories)
-                                                           .Union(new DirectoryInfo(AppDomain.CurrentDomain.BaseDirectory).GetFiles("*.exe", SearchOption.AllDirectories));
+			var exclusions = GetExcludedAssemblies();
+			var assemblyFiles = new DirectoryInfo(AppDomain.CurrentDomain.BaseDirectory).GetFiles("*.dll", SearchOption.AllDirectories)
+			 	.Union(new DirectoryInfo(AppDomain.CurrentDomain.BaseDirectory).GetFiles("*.exe", SearchOption.AllDirectories));
 
 			if (AssemblyFilter != null)
 				assemblyFiles = assemblyFiles.Where(AssemblyFilter);
@@ -31,8 +41,14 @@ namespace NServiceBus.Host.Internal
             {
                 Assembly assembly;
 
+		if (exclusions.Contains(assemblyFile.Name.ToLowerInvariant())) {
+Console.WriteLine("===> [NOT] Scanning Assembly => {0}", assemblyFile.Name);
+			continue;
+		}
+
                 try
                 {
+Console.WriteLine("===> Scanning Assembly => {0} ({1})", assemblyFile.FullName, assemblyFile.Name);
                     assembly = Assembly.LoadFrom(assemblyFile.FullName);
 
                     //will throw if assembly cant be loaded
