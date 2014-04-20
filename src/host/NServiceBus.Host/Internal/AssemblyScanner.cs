@@ -12,6 +12,8 @@ namespace NServiceBus.Host.Internal
     /// </summary>
     public class AssemblyScanner
     {
+		public static Func<FileInfo, bool> AssemblyFilter = null;
+
         /// <summary>
         /// Gets a list with assemblies that can be scanned
         /// </summary>
@@ -22,6 +24,8 @@ namespace NServiceBus.Host.Internal
             var assemblyFiles = new DirectoryInfo(AppDomain.CurrentDomain.BaseDirectory).GetFiles("*.dll", SearchOption.AllDirectories)
                                                            .Union(new DirectoryInfo(AppDomain.CurrentDomain.BaseDirectory).GetFiles("*.exe", SearchOption.AllDirectories));
 
+			if (AssemblyFilter != null)
+				assemblyFiles = assemblyFiles.Where(AssemblyFilter);
 
             foreach (var assemblyFile in assemblyFiles)
             {
